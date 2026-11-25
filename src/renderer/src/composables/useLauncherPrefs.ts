@@ -25,20 +25,46 @@ function readStoredBoolean(key: string): boolean | null {
   return null
 }
 
-// Custom launcher defaults apply only when the user has not already chosen a preference.
-if (typeof window !== 'undefined') {
-  const sidebarCollapsedKey = 'comfy.desktop.sidebar.collapsed'
-  if (readStoredBoolean(sidebarCollapsedKey) === null) {
-    window.localStorage.setItem(sidebarCollapsedKey, String(CUSTOM_LAUNCHER_DEFAULTS.sidebarCollapsed))
+function initializeCustomLauncherPreferences(): void {
+  if (typeof window === 'undefined') return
+
+  const collapsedKey = 'comfy.desktop.sidebar.collapsed'
+  if (readStoredBoolean(collapsedKey) === null) {
+    window.localStorage.setItem(collapsedKey, String(CUSTOM_LAUNCHER_DEFAULTS.sidebarCollapsed))
   }
 
   for (const page of ['home', 'apps', 'assets'] as const) {
     const key = `comfy.desktop.sidebar.hide.${page}`
-    if (readStoredBoolean(key) === null) {
-      window.localStorage.setItem(key, 'true')
-    }
+    if (readStoredBoolean(key) === null) window.localStorage.setItem(key, 'true')
+  }
+
+  // A dashboard launch with no explicit page opens Builds by default; preserve explicit page links.
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('panel') === 'chooser' && !params.has('dashboardPage')) {
+    params.set('dashboardPage', CUSTOM_LAUNCHER_DEFAULTS.defaultLaunchTab)
+    const query = params.toString()
+    const hash = window.location.hash
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${hash}`
+    )
+  }
+
+  // Hide only the three sidebar navigation rows; page navigation from in-page actions remains intact.
+  if (document.head && !document.getElementById('custom-launcher-sidebar-visibility')) {
+    const style = document.createElement('style')
+    style.id = 'custom-launcher-sidebar-visibility'
+    style.textContent = [
+      '.app-sidebar nav [data-testid="app-sidebar-home"],',
+      '.app-sidebar nav [data-testid="app-sidebar-apps"],',
+      '.app-sidebar nav [data-testid="app-sidebar-assets"] { display: none !important; }'
+    ].join('\n')
+    document.head.append(style)
   }
 }
+
+initializeCustomLauncherPreferences()
 
 const firstUseCompleted = ref<boolean>(false)
 const loaded = ref(false)
@@ -69,7 +95,6 @@ export function useLauncherPrefs() {
   }
 
   function sidebarVisibility(): CustomLauncherSidebarVisibility {
-    if (typeof window === 'undefined') return { home: false, apps: false, assets: false }
     return {
       home: readStoredBoolean('comfy.desktop.sidebar.hide.home') === true,
       apps: readStoredBoolean('comfy.desktop.sidebar.hide.apps') === true,
