@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import InfoTooltip from '../../components/InfoTooltip.vue'
 import { SECTION_TITLE_CLASS } from '../../lib/sectionTitle'
 import { useLauncherPrefs, type CustomLauncherSidebarPage } from '../../composables/useLauncherPrefs'
