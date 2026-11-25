@@ -20,26 +20,23 @@ export const MAXIMIZE_BELOW_WIDTH = 1600
 export const MAXIMIZE_BELOW_HEIGHT = 900
 export const MIN_WINDOW_WIDTH = 800
 export const MIN_WINDOW_HEIGHT = 600
+export const DEFAULT_WINDOW_WIDTH = 1200
+export const DEFAULT_WINDOW_HEIGHT = 800
 
 export interface FittedWindow extends WorkArea {
   minWidth: number
   minHeight: number
 }
 
-function fitSide(available: number, min: number, max: number): number {
-  const share = Math.round(available * SHARE_OF_WORK_AREA)
-  return Math.min(available, Math.max(min, Math.min(max, share)))
-}
-
 export function defaultWindowBounds(workArea: WorkArea): DefaultWindowBounds {
-  const width = fitSide(workArea.width, MIN_DEFAULT_WIDTH, MAX_DEFAULT_WIDTH)
-  const height = fitSide(workArea.height, MIN_DEFAULT_HEIGHT, MAX_DEFAULT_HEIGHT)
+  const width = Math.min(DEFAULT_WINDOW_WIDTH, workArea.width)
+  const height = Math.min(DEFAULT_WINDOW_HEIGHT, workArea.height)
   return {
     x: workArea.x + Math.round((workArea.width - width) / 2),
-    y: workArea.y + Math.round((workArea.height - height) * 0.45),
+    y: workArea.y + Math.round((workArea.height - height) / 2),
     width,
     height,
-    maximize: workArea.width < MAXIMIZE_BELOW_WIDTH || workArea.height < MAXIMIZE_BELOW_HEIGHT
+    maximize: false
   }
 }
 
