@@ -6,6 +6,8 @@ export type CustomLauncherSidebarVisibility = {
   assets: boolean
 }
 
+export type CustomLauncherSidebarPage = keyof CustomLauncherSidebarVisibility
+
 export const CUSTOM_LAUNCHER_DEFAULTS = {
   sidebarCollapsed: true,
   defaultLaunchTab: 'chooser' as const,
@@ -15,6 +17,12 @@ export const CUSTOM_LAUNCHER_DEFAULTS = {
     assets: false
   }
 } as const
+
+const HIDDEN_PAGE_KEYS: Record<CustomLauncherSidebarPage, string> = {
+  home: 'comfy.desktop.sidebar.hide.home',
+  apps: 'comfy.desktop.sidebar.hide.apps',
+  assets: 'comfy.desktop.sidebar.hide.assets'
+}
 
 function readStoredBoolean(key: string): boolean | null {
   if (typeof window === 'undefined') return null
@@ -33,9 +41,10 @@ function initializeCustomLauncherPreferences(): void {
     window.localStorage.setItem(collapsedKey, String(CUSTOM_LAUNCHER_DEFAULTS.sidebarCollapsed))
   }
 
-  for (const page of ['home', 'apps', 'assets'] as const) {
-    const key = `comfy.desktop.sidebar.hide.${page}`
-    if (readStoredBoolean(key) === null) window.localStorage.setItem(key, 'true')
+  for (const [page, key] of Object.entries(HIDDEN_PAGE_KEYS) as [CustomLauncherSidebarPage, string][]) {
+    if (readStoredBoolean(key) === null) {
+      window.localStorage.setItem(key, String(CUSTOM_LAUNCHER_DEFAULTS.sidebarVisibility[page]))
+    }
   }
 
   // A dashboard launch with no explicit page opens Builds by default; preserve explicit page links.
@@ -50,21 +59,28 @@ function initializeCustomLauncherPreferences(): void {
       `${window.location.pathname}${query ? `?${query}` : ''}${hash}`
     )
   }
-
-  // Hide only the three sidebar navigation rows; page navigation from in-page actions remains intact.
-  if (document.head && !document.getElementById('custom-launcher-sidebar-visibility')) {
-    const style = document.createElement('style')
-    style.id = 'custom-launcher-sidebar-visibility'
-    style.textContent = [
-      '.app-sidebar nav [data-testid="app-sidebar-home"],',
-      '.app-sidebar nav [data-testid="app-sidebar-apps"],',
-      '.app-sidebar nav [data-testid="app-sidebar-assets"] { display: none !important; }'
-    ].join('\n')
-    document.head.append(style)
-  }
 }
 
 initializeCustomLauncherPreferences()
+
+const hiddenSidebarPages = ref<CustomLauncherSidebarVisibility>({
+  home: readStoredBoolean(HIDDEN_PAGE_KEYS.home) ?? CUSTOM_LAUNCHER_DEFAULTS.sidebarVisibility.home,
+  apps: readStoredBoolean(HIDDEN_PAGE_KEYS.apps) ?? CUSTOM_LAUNCHER_DEFAULTS.sidebarVisibility.apps,
+  assets: readStoredBoolean(HIDDEN_PAGE_KEYS.assets) ?? CUSTOM_LAUNCHER_DEFAULTS.sidebarVisibility.assets
+})
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    const page = (Object.keys(HIDDEN_PAGE_KEYS) as CustomLauncherSidebarPage[]).find(
+      (candidate) => HIDDEN_PAGE_KEYS[candidate] === event.key
+    )
+    if (!page) return
+    hiddenSidebarPages.value = {
+      ...hiddenSidebarPages.value,
+      [page]: event.newValue === 'true'
+    }
+  })
+}
 
 const firstUseCompleted = ref<boolean>(false)
 const loaded = ref(false)
@@ -94,12 +110,9 @@ export function useLauncherPrefs() {
     await window.api.setSetting('firstUseCompleted', true)
   }
 
-  function sidebarVisibility(): CustomLauncherSidebarVisibility {
-    return {
-      home: readStoredBoolean('comfy.desktop.sidebar.hide.home') === true,
-      apps: readStoredBoolean('comfy.desktop.sidebar.hide.apps') === true,
-      assets: readStoredBoolean('comfy.desktop.sidebar.hide.assets') === true
-    }
+  function setSidebarPageHidden(page: CustomLauncherSidebarPage, hidden: boolean): void {
+    hiddenSidebarPages.value = { ...hiddenSidebarPages.value, [page]: hidden }
+    window.localStorage.setItem(HIDDEN_PAGE_KEYS[page], String(hidden))
   }
 
   return {
@@ -107,7 +120,8 @@ export function useLauncherPrefs() {
     loaded,
     loadPrefs,
     markFirstUseCompleted,
-    sidebarVisibility,
+    sidebarVisibility: hiddenSidebarPages,
+    setSidebarPageHidden,
     defaultLaunchTab: CUSTOM_LAUNCHER_DEFAULTS.defaultLaunchTab
   }
 }
@@ -116,4 +130,5 @@ export function __resetLauncherPrefsForTest(): void {
   loadPromise = null
   loaded.value = false
   firstUseCompleted.value = false
+  hiddenSidebarPages.value = { home: false, apps: false, assets: false }
 }
