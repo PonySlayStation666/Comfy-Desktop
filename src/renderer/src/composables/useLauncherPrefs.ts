@@ -1,5 +1,13 @@
 import { ref } from 'vue'
 
+// Custom launcher defaults apply only when the user has not already chosen a sidebar state.
+if (typeof window !== 'undefined') {
+  const sidebarCollapsedKey = 'comfy.desktop.sidebar.collapsed'
+  if (window.localStorage.getItem(sidebarCollapsedKey) === null) {
+    window.localStorage.setItem(sidebarCollapsedKey, 'true')
+  }
+}
+
 const firstUseCompleted = ref<boolean>(false)
 const loaded = ref(false)
 let loadPromise: Promise<void> | null = null
